@@ -1,0 +1,19 @@
+{
+  "type": "TAG",
+  "id": "cvt_temp_public_id",
+  "version": 1,
+  "securityGroups": [],
+  "displayName": "Zendesk Messaging – Web SDK",
+  "categories": [
+    "CHAT",
+    "UTILITY"
+  ],
+  "brand": {
+    "id": "brand_dummy",
+    "displayName": "pluscloud"
+  },
+  "description": "Loads and controls the Zendesk Messaging Web Widget: every zE command, setting and event of the Web SDK, Consent Mode, embedded mode, delegates and dataLayer events. Not affiliated with Zendesk.",
+  "containerContexts": [
+    "WEB"
+  ]
+}

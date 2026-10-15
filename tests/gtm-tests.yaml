@@ -1,0 +1,116 @@
+scenarios:
+- name: Setup creates the queue and injects the snippet
+  code: |-
+    mock('copyFromWindow', (key) => undefined);
+    const injected = [];
+    mock('injectScript', (url, onSuccess, onFailure, cacheToken) => {
+      injected.push(url);
+      onSuccess();
+    });
+    runCode(setupData);
+    assertApi('createArgumentsQueue').wasCalledWith('zE', 'zE._');
+    assertApi('aliasInWindow').wasCalledWith('zEmbed', 'zE');
+    assertThat(injected).contains('https://static.zdassets.com/ekr/snippet.js?key=11111111-2222-3333-4444-555555555555');
+    assertApi('gtmOnSuccess').wasCalled();
+- name: CDN bridge source injects the bridge
+  code: |-
+    mock('copyFromWindow', (key) => undefined);
+    const injected = [];
+    mock('injectScript', (url, onSuccess) => {
+      injected.push(url);
+      onSuccess();
+    });
+    const data = setupData;
+    data.bridgeSource = 'cdn';
+    runCode(data);
+    assertThat(injected).contains('https://cdn.jsdelivr.net/gh/pluscloud-nl/Zendesk-Web-SDK-for-Google-Tag-Manager@0.1.0/bridge/zendesk-gtm-bridge.js');
+- name: Setup in existing snippet mode does not inject
+  code: |-
+    mock('copyFromWindow', (key) => undefined);
+    const injected = [];
+    mock('injectScript', (url, onSuccess) => {
+      injected.push(url);
+      onSuccess();
+    });
+    const data = setupData;
+    data.loadMode = 'existing';
+    runCode(data);
+    assertThat(injected).doesNotContain('https://static.zdassets.com/ekr/snippet.js?key=11111111-2222-3333-4444-555555555555');
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Setup applies cookies before the locale
+  code: |-
+    mock('copyFromWindow', (key) => undefined);
+    const calls = [];
+    mock('callInWindow', function (path, ns, cmd, value) {
+      if (path === 'zE') calls.push(ns + ' ' + cmd + ' ' + value);
+    });
+    const data = setupData;
+    data.cookieMode = 'functional';
+    data.locale = 'nl';
+    runCode(data);
+    assertThat(calls.indexOf('messenger:set cookies functional')).isLessThan(calls.indexOf('messenger:set locale nl'));
+- name: Consent denied with do not load skips the snippet
+  code: |-
+    mock('copyFromWindow', (key) => undefined);
+    mock('isConsentGranted', (type) => false);
+    const data = setupData;
+    data.cookieMode = 'consent';
+    data.consentDeniedBehavior = 'skip';
+    data.waitForConsent = true;
+    runCode(data);
+    assertApi('injectScript').wasNotCalled();
+    assertApi('addConsentListener').wasCalled();
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Customization only contains filled and valid options
+  code: |-
+    mock('copyFromWindow', (key) => undefined);
+    let customization;
+    mock('callInWindow', function (path, ns, cmd, value) {
+      if (path === 'zE' && cmd === 'customization') customization = value;
+    });
+    const data = setupData;
+    data.customizationEnabled = true;
+    data.themeColors = [{ property: 'primary', color: '#FE5E41' }];
+    data.customizationOptions = [
+      { option: 'common.contentScale', value: '110' },
+      { option: 'messageLog.citations.sources', value: 'numberedList' },
+      { option: 'messageLog.avatar.size', value: '999' }
+    ];
+    runCode(data);
+    assertThat(customization).isEqualTo({
+      theme: { primary: '#FE5E41' },
+      common: { contentScale: 110 },
+      messageLog: { citations: { sources: 'numberedList' } }
+    });
+- name: Open command shows and opens the widget
+  code: |-
+    mock('copyFromWindow', (key) => key === 'zE' ? function () {} : undefined);
+    runCode({ tagType: 'command', command: 'open', showBeforeOpen: true });
+    assertApi('callInWindow').wasCalledWith('zE', 'messenger', 'show');
+    assertApi('callInWindow').wasCalledWith('zE', 'messenger', 'open');
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Voice command passes the line id
+  code: |-
+    mock('copyFromWindow', (key) => key === 'zE' ? function () {} : undefined);
+    runCode({ tagType: 'command', command: 'voice', voiceLineId: '53425f6ca3b02dd719ad9654af3fce38' });
+    assertApi('callInWindow').wasCalledWith('zE', 'messenger:open', 'voice', '53425f6ca3b02dd719ad9654af3fce38');
+- name: Navigation command builds the screen config
+  code: |-
+    mock('copyFromWindow', (key) => key === 'zE' ? function () {} : undefined);
+    runCode({ tagType: 'command', command: 'navigation', navScreen: 'Conversation', navConversationId: 'abc', openAfterNav: false });
+    assertApi('callInWindow').wasCalledWith('zE', 'messenger:ui', 'navigation', { screen: 'Conversation', options: { conversationId: 'abc' } });
+setup: |-
+  const setupData = {
+    tagType: 'setup',
+    loadSnippet: true,
+    snippetKey: '11111111-2222-3333-4444-555555555555',
+    loadMode: 'auto',
+    renderMode: 'floating',
+    initialVisibility: 'default',
+    cookieMode: 'default',
+    trackEvents: true,
+    eventSelection: 'recommended',
+    eventPrefix: 'zendesk_messaging.',
+    pushApiResults: true,
+    logLevel: 'none'
+  };

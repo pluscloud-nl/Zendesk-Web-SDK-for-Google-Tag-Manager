@@ -1,0 +1,26 @@
+{
+  "name": "zendesk-web-sdk-for-google-tag-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Google Tag Manager custom template for the Zendesk Messaging Web Widget SDK",
+  "type": "module",
+  "scripts": {
+    "lint": "node scripts/build.mjs --lint-only",
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/build.mjs && node --test tests/unit/*.test.mjs",
+    "harness": "python3 -m http.server 8787 --bind 127.0.0.1"
+  },
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "acorn": "^8.14.0",
+    "acorn-walk": "^8.3.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pluscloud-nl/Zendesk-Web-SDK-for-Google-Tag-Manager.git"
+  },
+  "homepage": "https://github.com/pluscloud-nl/Zendesk-Web-SDK-for-Google-Tag-Manager#readme",
+  "bugs": {
+    "url": "https://github.com/pluscloud-nl/Zendesk-Web-SDK-for-Google-Tag-Manager/issues"
+  }
+}

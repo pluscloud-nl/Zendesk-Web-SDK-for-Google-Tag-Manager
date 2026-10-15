@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Template Harness</title>
+  <style>
+    :root { --bg: #fff; --fg: #1b1b1b; --muted: #f3f4f6; --line: #d6d9de; --accent: #387f57; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #16181b; --fg: #e8e8e8; --muted: #22252a; --line: #3a3f46; } }
+    body { background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, sans-serif; margin: 0; padding: 16px; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+    @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+    textarea, input { width: 100%; box-sizing: border-box; font: 12px ui-monospace, monospace; background: var(--muted); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+    textarea { height: 260px; }
+    button { margin: 2px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--muted); color: var(--fg); cursor: pointer; }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    pre { background: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 8px; height: 420px; overflow: auto; font-size: 12px; margin: 0; }
+    label { display: block; font-weight: 600; margin: 8px 0 4px; }
+  </style>
+</head>
+<body>
+  <h1>Zendesk Messaging – Web SDK template harness</h1>
+  <p>Runs <code>src/sandbox.js</code> in a GTM sandbox emulator against the real widget. No <code>#ze-snippet</code> on this page.</p>
+  <div class="grid">
+    <section>
+      <label for="setup">Setup tag data (merged over the template defaults)</label>
+      <textarea id="setup"></textarea>
+      <button class="primary" id="runSetup">Fire Setup tag</button>
+      <label>Command tags</label>
+      <div id="commands"></div>
+      <label for="custom">Custom command data</label>
+      <input id="custom" value='{"command":"navigation","navScreen":"ConversationList"}'>
+      <button id="runCustom">Fire custom command</button>
+    </section>
+    <section>
+      <label>dataLayer (zendesk_messaging.*) <button id="clear">clear</button></label>
+      <pre id="log"></pre>
+      <label>window.__gtmZendesk</label>
+      <pre id="state" style="height:140px"></pre>
+    </section>
+  </div>
+  <script type="module">
+    import parameters from '../../src/parameters.mjs';
+    import * as permissions from '../../src/permissions.mjs';
+    import { createSandbox } from '../emulator/gtm-sandbox.mjs';
+
+    const params = new URLSearchParams(location.search);
+    // Pass your own widget key: index.html?key=<uuid> or ?key=web_widget/<subdomain>.zendesk.com
+    const KEY = params.get('key') || '';
+    if (!KEY) document.body.insertAdjacentHTML('afterbegin', '<p><strong>Add ?key=&lt;your Web Widget key&gt; to the URL.</strong></p>');
+
+    const defaults = () => {
+      const out = {};
+      const visit = (list) => list.forEach((p) => {
+        if (p.name && p.type !== 'GROUP' && p.type !== 'LABEL') {
+          out[p.name] = p.defaultValue !== undefined ? p.defaultValue : p.type === 'CHECKBOX' ? false : p.type === 'SIMPLE_TABLE' ? undefined : '';
+        }
+        if (p.subParams) visit(p.subParams);
+      });
+      visit(parameters);
+      return out;
+    };
+
+    const SETUP = {
+      tagType: 'setup', snippetKey: KEY, logLevel: 'verbose',
+      locale: 'en-US', eventSelection: 'all', includeRawPayload: false,
+      conversationTags: [{ tag: 'gtm_template_test' }],
+      conversationMetadata: [{ key: 'source', value: 'gtm-harness', type: 'string' }],
+      customizationEnabled: true, themeColors: [{ property: 'primary', color: '#1F3A5F' }], commonStylingPreset: 'minimalistic',
+      customizationOptions: [{ option: 'messageLog.citations.sources', value: 'bulletedList' }],
+      beforeSentEnabled: true, beforeSentPageContext: true,
+      beforeSentMetadata: [{ key: 'harness', source: 'static', value: 'yes', type: 'string' }],
+      beforeDisplayEnabled: true, hideRules: [{ key: 'internal_only', value: 'true' }]
+    };
+    document.getElementById('setup').value = JSON.stringify(SETUP, null, 2);
+
+    const source = await (await fetch('../../src/sandbox.js', { cache: 'no-store' })).text();
+    // Serve the event bridge from this repo instead of jsDelivr.
+    const injectScript = (url, onSuccess, onFailure) => {
+      const s = document.createElement('script');
+      s.src = url.indexOf('zendesk-gtm-bridge') > -1 ? '../../bridge/zendesk-gtm-bridge.js' : url;
+      s.onload = () => onSuccess && onSuccess();
+      s.onerror = () => onFailure && onFailure();
+      document.head.appendChild(s);
+    };
+    const sandbox = createSandbox({ window, permissions, injectScript, log: (...a) => console.log(...a) });
+    const run = (data) => sandbox.run(source, Object.assign(defaults(), data));
+    const command = (name, data = {}) => run(Object.assign({ tagType: 'command', command: name, logLevel: 'verbose' }, data));
+
+    const COMMANDS = {
+      open: {}, close: {}, toggle: {}, show: {}, hide: {}, getConfig: {},
+      'navigation:list': ['navigation', { navScreen: 'ConversationList' }],
+      'navigation:recent': ['navigation', { navScreen: 'MostRecentActiveConversation' }],
+      'newConversation:ui': ['newConversation', { convMode: 'ui', convDisplayName: 'Harness (UI)', convMessageText: 'Hello from the harness (UI)', openAfterConv: true }],
+      newConversation: { convMode: 'programmatic', convDisplayName: 'Harness', convDescription: 'Created by the GTM harness', convMessageText: 'Hello from the harness', convMessageMetadata: [{ key: 'intent', value: 'test', type: 'string' }], navigateAfter: true, openAfterConv: true },
+      sendMessage: { sendText: 'Message from the sendMessage command', sendTarget: 'current' },
+      'sendMessage:hidden': ['sendMessage', { sendText: 'internal workflow message', sendTarget: 'current', sendMetadata: [{ key: 'internal_only', value: 'true', type: 'boolean' }] }],
+      fetchConversations: { fetchAll: true },
+      updateUser: { cmdUserData: [{ key: 'plan', value: 'enterprise', type: 'string' }] },
+      'setLocale:nl': ['setLocale', { cmdLocale: 'nl' }],
+      resetWidget: {}
+    };
+    const box = document.getElementById('commands');
+    Object.entries(COMMANDS).forEach(([label, spec]) => {
+      const [name, data] = Array.isArray(spec) ? spec : [label, spec];
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.onclick = () => command(name, data);
+      box.appendChild(b);
+    });
+
+    document.getElementById('runSetup').onclick = () => run(JSON.parse(document.getElementById('setup').value));
+    document.getElementById('runCustom').onclick = () => {
+      const data = JSON.parse(document.getElementById('custom').value);
+      command(data.command, data);
+    };
+
+    const logEl = document.getElementById('log');
+    const stateEl = document.getElementById('state');
+    let shown = 0;
+    document.getElementById('clear').onclick = () => { logEl.textContent = ''; };
+    setInterval(() => {
+      const dl = window.dataLayer || [];
+      for (; shown < dl.length; shown++) {
+        const item = dl[shown];
+        if (!item || !item.event || item.event.indexOf('zendesk_messaging.') !== 0) continue;
+        const z = Object.fromEntries(Object.entries(item.zendesk).filter(([, v]) => v !== undefined));
+        logEl.textContent += item.event + ' ' + JSON.stringify(z) + '\n';
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+      stateEl.textContent = JSON.stringify(window.__gtmZendesk || {}, null, 2);
+    }, 300);
+
+    window.harness = { run, command, sandbox, defaults, SETUP };
+  </script>
+</body>
+</html>

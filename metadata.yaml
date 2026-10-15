@@ -2,5 +2,5 @@ homepage: "https://pluscloud.nl"
 documentation: "https://github.com/pluscloud-nl/Zendesk-Web-SDK-for-Google-Tag-Manager#readme"
 versions:
   # Latest version first; sha = the commit that contains that version of template.tpl.
-  - sha: 9feea946f96627b5710d9ff06e219527c5137242
+  - sha: 0f5fac7ebc65d6e8a5b20653f3d570134db3bddb
     changeNotes: Initial release.

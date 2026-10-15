@@ -20,9 +20,9 @@ scenarios:
       injected.push(url);
       onSuccess();
     });
-    const data = setupData;
-    data.bridgeSource = 'cdn';
-    runCode(data);
+    const config = setupData;
+    config.bridgeSource = 'cdn';
+    runCode(config);
     assertThat(injected).contains('https://cdn.jsdelivr.net/gh/pluscloud-nl/Zendesk-Web-SDK-for-Google-Tag-Manager@0.1.0/bridge/zendesk-gtm-bridge.js');
 - name: Setup in existing snippet mode does not inject
   code: |-
@@ -32,9 +32,9 @@ scenarios:
       injected.push(url);
       onSuccess();
     });
-    const data = setupData;
-    data.loadMode = 'existing';
-    runCode(data);
+    const config = setupData;
+    config.loadMode = 'existing';
+    runCode(config);
     assertThat(injected).doesNotContain('https://static.zdassets.com/ekr/snippet.js?key=11111111-2222-3333-4444-555555555555');
     assertApi('gtmOnSuccess').wasCalled();
 - name: Setup applies cookies before the locale
@@ -44,20 +44,20 @@ scenarios:
     mock('callInWindow', function (path, ns, cmd, value) {
       if (path === 'zE') calls.push(ns + ' ' + cmd + ' ' + value);
     });
-    const data = setupData;
-    data.cookieMode = 'functional';
-    data.locale = 'nl';
-    runCode(data);
+    const config = setupData;
+    config.cookieMode = 'functional';
+    config.locale = 'nl';
+    runCode(config);
     assertThat(calls.indexOf('messenger:set cookies functional')).isLessThan(calls.indexOf('messenger:set locale nl'));
 - name: Consent denied with do not load skips the snippet
   code: |-
     mock('copyFromWindow', (key) => undefined);
     mock('isConsentGranted', (type) => false);
-    const data = setupData;
-    data.cookieMode = 'consent';
-    data.consentDeniedBehavior = 'skip';
-    data.waitForConsent = true;
-    runCode(data);
+    const config = setupData;
+    config.cookieMode = 'consent';
+    config.consentDeniedBehavior = 'skip';
+    config.waitForConsent = true;
+    runCode(config);
     assertApi('injectScript').wasNotCalled();
     assertApi('addConsentListener').wasCalled();
     assertApi('gtmOnSuccess').wasCalled();
@@ -68,15 +68,15 @@ scenarios:
     mock('callInWindow', function (path, ns, cmd, value) {
       if (path === 'zE' && cmd === 'customization') customization = value;
     });
-    const data = setupData;
-    data.customizationEnabled = true;
-    data.themeColors = [{ property: 'primary', color: '#FE5E41' }];
-    data.customizationOptions = [
+    const config = setupData;
+    config.customizationEnabled = true;
+    config.themeColors = [{ property: 'primary', color: '#FE5E41' }];
+    config.customizationOptions = [
       { option: 'common.contentScale', value: '110' },
       { option: 'messageLog.citations.sources', value: 'numberedList' },
       { option: 'messageLog.avatar.size', value: '999' }
     ];
-    runCode(data);
+    runCode(config);
     assertThat(customization).isEqualTo({
       theme: { primary: '#FE5E41' },
       common: { contentScale: 110 },

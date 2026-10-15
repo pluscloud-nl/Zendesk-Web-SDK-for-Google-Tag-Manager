@@ -110,6 +110,11 @@ export const build = () => {
   info.brand.thumbnail = 'data:image/png;base64,' + readFileSync(join(root, 'assets/icon.png')).toString('base64');
   const pkg = JSON.parse(read('package.json'));
   const tests = read('tests/gtm-tests.yaml');
+  // GTM's test runner predefines `data`; declaring it again fails all tests.
+  if (/\b(const|let|var)\s+data\b/.test(tests)) {
+    console.error('tests/gtm-tests.yaml declares a variable named "data", which GTM reserves.');
+    process.exit(1);
+  }
   // GTM rejects test names with quotes and other special characters.
   for (const [, name] of tests.matchAll(/^- name: (.*)$/gm)) {
     if (!/^[A-Za-z0-9 ]+$/.test(name)) {
